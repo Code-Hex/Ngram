@@ -1,4 +1,4 @@
-# Ngram
+# String::Ngram
 Text::MeCab based ngram module with perl
 
 ##Usage
@@ -27,6 +27,8 @@ use utf8;
 use v5.10;
 use Encode qw/encode_utf8 decode_utf8/;
 use Data::Dumper;
+
+use String::Ngram;
 
 my $ngram = String::Ngram->new(dicdir => "/usr/local/lib/mecab/dic/mecab-ipadic-neologd");
 
