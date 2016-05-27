@@ -4,7 +4,9 @@ use strict;
 use warnings;
 #use Data::Dumper;
 use utf8;
+
 use Text::MeCab;
+use Storable qw/nstore retrieve/;
 use Encode qw/encode_utf8 decode_utf8/;
 
 sub new {
@@ -13,19 +15,21 @@ sub new {
 	my $self = {%args};
 
 	$self->{mecab} = Text::MeCab->new({%args});
-	$self->{head} = [];
-	$self->{phrase} = [];
+	$self->{top} = [];
+	$self->{dictionary} = {};
 
 	return bless $self, $class;
 }
 
-=head makedic(:HASH, :Str, :Int)
+sub toplist { $_[0]->{top} }
+sub dictionary { $_[0]->{dictionary} }
+
+=head makedic(:HASHREF, :Str, :Int)
 :Int は Ngram の N
 =cut
 sub makedic {
 	my $self = shift;
 
-	my $dic = shift;
 	my $sentence = shift;
 	my $times = shift;
 
@@ -34,7 +38,7 @@ sub makedic {
 	my ($words, $keys) = ([], []);
 
 	# 先頭のフレーズを保存
-	push @{$self->{head}}, $node->surface;
+	push @{$self->{top}}, $node->surface;
 
 	while ($node->surface) {
 		push @$words, $node->surface;
@@ -45,22 +49,21 @@ sub makedic {
 	
 	foreach my $i (0 .. @$words - ($loops + 1)) {
 		$keys->[$_] = $words->[$i + $_] for 0..$loops;
-		deeppush($dic, $keys, 0, $loops);
+		deeppush($self->dictionary, $keys, 0, $loops);
 	}
 }
 
-=head generate(:HASH, :Int)
+=head generate(:HASHREF, :Int)
 :Int は ループ回数
 =cut
 
 sub generate {
 	my $self = shift;
 
-	my $dic = shift;
 	my $times = shift;
-	my $size = @{$self->headlist};
+	my $size = @{$self->toplist};
 
-	my $prefix = $self->headlist->[int rand $size];
+	my $prefix = $self->toplist->[int rand $size];
 	my $sentense = $prefix;
 	my $suffix = "";
 
@@ -68,17 +71,30 @@ sub generate {
 	my $key = $prefix;
 
 	for (1..$times) {
-		next unless ($dic->{$key});
-		($sentense, $suffix) = random_phrase($dic, $sentense, $key);
+		next unless ($self->dictionary->{$key});
+		($sentense, $suffix) = random_phrase($self->{dictionary}, $sentense, $key);
 		$key = $suffix;
 	}
 
 	return $sentense;
 }
 
-sub headlist {
+sub savefile {
 	my $self = shift;
-	return $self->{head};
+	my $path = shift;
+	my $data = {
+		dictionary => $self->{dictionary},
+		toplist => $self->{top}
+	};
+	nstore($data, $path);
+}
+
+sub loadfile {
+	my $self = shift;
+	my $path = shift;
+	my $data = retrieve($path);
+	$self->{dictionary} = $data->{dictionary};
+	$self->{top} = $data->{toplist};
 }
 
 sub deeppush {
