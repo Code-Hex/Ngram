@@ -8,12 +8,22 @@ my $ngram = String::Ngram->new(TEXT::MECAB_INITIAL_ARGS);
 ```
 ###make marcov dictionary
 ```
-$ngram->makedic(HASHREF, Str, Int);
+$ngram->makedic(Str, Int);
+```
+
+###save dictionary data
+```
+$ngram->savefile(Str);
+```
+
+###load dictionary data
+```
+$ngram->loadfile(Str);
 ```
 
 ###generate sentense
 ```
-$ngram->generate(HASHREF, Int);
+$ngram->generate(Int);
 ```
   
 ##Example
@@ -34,12 +44,11 @@ my $ngram = String::Ngram->new(dicdir => "/usr/local/lib/mecab/dic/mecab-ipadic-
 
 my $input = encode_utf8 "今回のサミットで焦点となる世界経済を巡る討議は、午後３時半すぎに終わりました。この中で安倍総理大臣は「世界経済は今、まさに分岐点にあり、政策的対応を誤ると危機に陥るリスクがあることは認識しておかなければならない」という考えを示し、Ｇ７の結束を呼びかけたとみられます。。";
 
-my $dic = {};
-$ngram->makedic($dic, $input, 3);
+$ngram->makedic($input, 3);
 
-# say Dumper $dic;
+# say Dumper $ngram->dictionary;
 
-say $ngram->generate($dic, 16);
+say $ngram->generate(16);
 ```
 
 ##License
