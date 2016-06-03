@@ -55,7 +55,8 @@ sub makedict {
 			$flag = 1;
 			$kakko = $node->surface;
 		} else {
-			push @$words, $node->surface;
+
+			push @$words, $node->surface if $f2 ne encode_utf8 "括弧閉";
 		}
 		$node = $node->next;
 	}
