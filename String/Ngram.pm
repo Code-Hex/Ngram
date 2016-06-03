@@ -16,18 +16,19 @@ sub new {
 
 	$self->{mecab} = Text::MeCab->new({%args});
 	$self->{top} = [];
-	$self->{dictionary} = {};
+	$self->{dict} = {};
 
 	return bless $self, $class;
 }
 
+# for Ngram
 sub toplist { $_[0]->{top} }
-sub dictionary { $_[0]->{dictionary} }
+sub dict { $_[0]->{dict} }
 
-=head makedic(:HASHREF, :Str, :Int)
+=head makedict(:HASHREF, :Str, :Int)
 :Int は Ngram の N
 =cut
-sub makedic {
+sub makedict {
 	my $self = shift;
 
 	my $sentence = shift;
@@ -40,27 +41,46 @@ sub makedic {
 	# 先頭のフレーズを保存
 	push @{$self->{top}}, $node->surface;
 
+	# かっこは閉じる
+	my ($kakko, $flag, $f2) = ("", 0, "");
 	while ($node->surface) {
-		push @$words, $node->surface;
+		$f2 = (split /,/, $node->feature)[1];
+		if ($flag == 1) {
+			$kakko .= $node->surface;
+			if ($f2 eq encode_utf8 "括弧閉") {
+				push @$words, $kakko;
+				($flag, $kakko) = (0, "");
+			}
+		} elsif ($f2 eq encode_utf8 "括弧開") {
+			$flag = 1;
+			$kakko = $node->surface;
+		} else {
+			push @$words, $node->surface;
+		}
 		$node = $node->next;
 	}
 
 	my $loops = $times - 1;
+	my $limit = @$words - ($loops + 1);
 	
-	foreach my $i (0 .. @$words - ($loops + 1)) {
+	foreach my $i (0 .. $limit) {
 		$keys->[$_] = $words->[$i + $_] for 0..$loops;
-		deeppush($self->dictionary, $keys, 0, $loops);
+		deeppush($self->dict, $keys, 0, $loops);
+	}
+
+	foreach my $i ($limit + 1 .. @$words - 3) {
+		$keys = [];
+		$keys->[$_] = $words->[$i + $_] for 0..@$words - $i - 1;
+		deeppush($self->dict, $keys, 0, @$words - $i - 1);
 	}
 }
 
 =head generate(:HASHREF, :Int)
 :Int は ループ回数
 =cut
-
 sub generate {
 	my $self = shift;
 
-	my $times = shift;
 	my $size = @{$self->toplist};
 
 	my $prefix = $self->toplist->[int rand $size];
@@ -70,20 +90,20 @@ sub generate {
 	# 先頭の単語を基に文章を生成する。
 	my $key = $prefix;
 
-	for (1..$times) {
-		next unless ($self->dictionary->{$key});
-		($sentense, $suffix) = random_phrase($self->{dictionary}, $sentense, $key);
+	while ($self->dict->{$key}) {
+		($sentense, $suffix) = random_phrase($self->{dict}, $sentense, $key);
 		$key = $suffix;
 	}
 
 	return $sentense;
 }
 
+
 sub savefile {
 	my $self = shift;
 	my $path = shift;
 	my $data = {
-		dictionary => $self->{dictionary},
+		dict => $self->{dict},
 		toplist => $self->{top}
 	};
 	nstore($data, $path);
@@ -93,7 +113,7 @@ sub loadfile {
 	my $self = shift;
 	my $path = shift;
 	my $data = retrieve($path);
-	$self->{dictionary} = $data->{dictionary};
+	$self->{dict} = $data->{dict};
 	$self->{top} = $data->{toplist};
 }
 
