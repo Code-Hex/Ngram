@@ -93,6 +93,7 @@ sub generate {
 
 	while ($self->dict->{$key}) {
 		($sentense, $suffix) = random_phrase($self->{dict}, $sentense, $key);
+		last if encode_utf8($suffix) =~ /[。！？!?]$/;
 		$key = $suffix;
 	}
 
