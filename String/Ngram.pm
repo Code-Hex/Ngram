@@ -2,7 +2,7 @@ package String::Ngram;
 
 use strict;
 use warnings;
-#use Data::Dumper;
+use Data::Dumper;
 use utf8;
 
 use Text::MeCab;
@@ -12,7 +12,7 @@ use Encode qw/encode_utf8 decode_utf8/;
 sub new {
 	my ($class, @args) = @_;
 	my %args = ref $args[0] eq 'HASH' ? %{$args[0]} : @args;
-	my $self = {%args};
+	my $self = {};
 
 	$self->{mecab} = Text::MeCab->new({%args});
 	$self->{top} = [];
@@ -25,10 +25,10 @@ sub new {
 sub toplist { $_[0]->{top} }
 sub dict { $_[0]->{dict} }
 
-=head makedict(:HASHREF, :Str, :Int)
+=head appendict(:HASHREF, :Str, :Int)
 :Int は Ngram の N
 =cut
-sub makedict {
+sub appendict {
 	my $self = shift;
 
 	my $sentence = shift;
@@ -42,18 +42,19 @@ sub makedict {
 	push @{$self->{top}}, $node->surface;
 
 	# かっこは閉じる
-	my ($kakko, $flag, $f2) = ("", 0, "");
+	my ($bracket, $flag, $f2) = ("", 0, "");
 	while ($node->surface) {
 		$f2 = (split /,/, $node->feature)[1];
 		if ($flag == 1) {
-			$kakko .= $node->surface;
+			$bracket .= $node->surface;
 			if ($f2 eq encode_utf8 "括弧閉") {
-				push @$words, $kakko;
-				($flag, $kakko) = (0, "");
+				push @$words, $bracket;
+				$flag = 0;
+				$bracket = "";
 			}
 		} elsif ($f2 eq encode_utf8 "括弧開") {
 			$flag = 1;
-			$kakko = $node->surface;
+			$bracket = $node->surface;
 		} else {
 
 			push @$words, $node->surface if $f2 ne encode_utf8 "括弧閉";
@@ -75,31 +76,6 @@ sub makedict {
 		deeppush($self->dict, $keys, 0, @$words - $i - 1);
 	}
 }
-
-=head generate(:HASHREF, :Int)
-:Int は ループ回数
-=cut
-sub generate {
-	my $self = shift;
-
-	my $size = @{$self->toplist};
-
-	my $prefix = $self->toplist->[int rand $size];
-	my $sentense = $prefix;
-	my $suffix = "";
-
-	# 先頭の単語を基に文章を生成する。
-	my $key = $prefix;
-
-	while ($self->dict->{$key}) {
-		($sentense, $suffix) = random_phrase($self->{dict}, $sentense, $key);
-		last if encode_utf8($suffix) =~ /[。！？!?]$/;
-		$key = $suffix;
-	}
-
-	return $sentense;
-}
-
 
 sub savefile {
 	my $self = shift;
@@ -130,6 +106,34 @@ sub deeppush {
 	} else {
 		push @{$node->{$keys->[$count]}}, $keys->[++$count];
 	}
+}
+
+
+### Malcof
+
+=head generate(:HASHREF, :Int)
+:Int は ループ回数
+=cut
+sub generate {
+	my $self = shift;
+
+	my $size = @{$self->toplist};
+	print Dumper $self->{dict};
+
+	my $prefix = $self->toplist->[int rand $size];
+	my $sentense = $prefix;
+	my $suffix = "";
+
+	# 先頭の単語を基に文章を生成する。
+	my $key = $prefix;
+
+	while ($self->dict->{$key}) {
+		($sentense, $suffix) = random_phrase($self->{dict}, $sentense, $key);
+		last if encode_utf8($suffix) =~ /[。！？!?]$/;
+		$key = $suffix;
+	}
+
+	return $sentense;
 }
 
 sub random_phrase {
